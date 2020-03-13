@@ -23,22 +23,25 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Foo is a specification for a Foo resource
-type Foo struct {
+// SecretExport is a specification for a SecretExport resource
+type SecretExport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   FooSpec   `json:"spec"`
-	Status FooStatus `json:"status"`
+	Spec   SecretExportSpec   `json:"spec"`
+	Status SecretExportStatus `json:"status"`
 }
 
-// FooSpec is the spec for a Foo resource
-type FooSpec struct {
-	DeploymentName string `json:"deploymentName"`
-	Replicas       *int32 `json:"replicas"`
+// SecretExportSpec is the spec for a SecretExport resource
+type SecretExportSpec struct {
+	DeploymentName string   `json:"deploymentName"`
+	Replicas       *int32   `json:"replicas"`
+	ToNamespace    string   `json:"toNamespace,omitempty"`
+	ToNamespaces   []string `json:"toNamespaces,omitempty"`
 }
 
-// FooStatus is the status for a Foo resource
-type FooStatus struct {
-	AvailableReplicas int32 `json:"availableReplicas"`
+// SecretExportStatus is the status for a SecretExport resource
+type SecretExportStatus struct {
+	AvailableReplicas             int32  `json:"availableReplicas"`
+	ObservedSecretResourceVersion string `json:"observedSecretResourceVersion,omitempty"`
 }

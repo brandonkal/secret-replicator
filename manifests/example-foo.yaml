@@ -1,5 +1,5 @@
-apiVersion: samplecontroller.k8s.io/v1alpha1
-kind: Foo
+apiVersion: replicator.kite.run/v1alpha1
+kind: SecretExport
 metadata:
   name: example-foo
 spec:

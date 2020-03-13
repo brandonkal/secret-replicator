@@ -7,7 +7,7 @@ import (
 	"context"
 	"flag"
 
-	"github.com/brandonkal/secret-replicator/pkg/generated/controllers/samplecontroller.k8s.io"
+	controller "github.com/brandonkal/secret-replicator/pkg/generated/controllers/replicator.kite.run"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
 	"github.com/rancher/wrangler/pkg/kubeconfig"
 	"github.com/rancher/wrangler/pkg/signals"
@@ -42,7 +42,7 @@ func main() {
 	// Generated apps controller
 	apps := apps.NewFactoryFromConfigOrDie(cfg)
 	// Generated sample controller
-	sample := samplecontroller.NewFactoryFromConfigOrDie(cfg)
+	sample := controller.NewFactoryFromConfigOrDie(cfg)
 
 	// The typical pattern is to build all your controller/clients then just pass to each handler
 	// the bare minimum of what they need.  This will eventually help with writing tests.  So
@@ -50,7 +50,7 @@ func main() {
 	Register(ctx,
 		kubeClient.CoreV1().Events(""),
 		apps.Apps().V1().Deployment(),
-		sample.Samplecontroller().V1alpha1().Foo())
+		sample.Samplecontroller().V1alpha1().SecretExport())
 
 	// Start all the controllers
 	if err := start.All(ctx, 2, apps, sample); err != nil {

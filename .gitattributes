@@ -1,0 +1,5 @@
+zz_*.go -diff -merge
+zz_*.go linguist-generated=true
+/generated -diff -merge
+/generated linguist-generated=true
+go.sum linguist-generated=true

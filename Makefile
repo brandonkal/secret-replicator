@@ -10,4 +10,6 @@ run: build
 	./secret-replicator
 
 clean:
-	rm -rf pkg/generated
+	rm -rf ~/go/src/github.com/brandonkal/pkg
+	go run pkg/codegen/cleanup/main.go
+	rm pkg/apis/replicator.kite.run/v1alpha1/doc.go

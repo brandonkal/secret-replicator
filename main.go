@@ -9,6 +9,7 @@ import (
 
 	controller "github.com/brandonkal/secret-replicator/pkg/generated/controllers/replicator.kite.run"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
+	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
 	"github.com/rancher/wrangler/pkg/kubeconfig"
 	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/rancher/wrangler/pkg/start"
@@ -42,7 +43,8 @@ func main() {
 	// Generated apps controller
 	apps := apps.NewFactoryFromConfigOrDie(cfg)
 	// Generated sample controller
-	sample := controller.NewFactoryFromConfigOrDie(cfg)
+	repctl := controller.NewFactoryFromConfigOrDie(cfg)
+	core := core.NewFactoryFromConfigOrDie(cfg)
 
 	// The typical pattern is to build all your controller/clients then just pass to each handler
 	// the bare minimum of what they need.  This will eventually help with writing tests.  So
@@ -50,10 +52,12 @@ func main() {
 	Register(ctx,
 		kubeClient.CoreV1().Events(""),
 		apps.Apps().V1().Deployment(),
-		sample.Samplecontroller().V1alpha1().SecretExport())
+		repctl.Replicator().V1alpha1().SecretExport(),
+		core.Core().V1().Secret(),
+	)
 
 	// Start all the controllers
-	if err := start.All(ctx, 2, apps, sample); err != nil {
+	if err := start.All(ctx, 2, apps, repctl); err != nil {
 		logrus.Fatalf("Error starting: %s", err.Error())
 	}
 

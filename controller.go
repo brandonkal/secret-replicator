@@ -8,6 +8,7 @@ import (
 	samplescheme "github.com/brandonkal/secret-replicator/pkg/generated/clientset/versioned/scheme"
 	"github.com/brandonkal/secret-replicator/pkg/generated/controllers/replicator.kite.run/v1alpha1"
 	v1 "github.com/rancher/wrangler-api/pkg/generated/controllers/apps/v1"
+	cv1 "github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,8 @@ const (
 type Handler struct {
 	deployments        v1.DeploymentClient
 	deploymentsCache   v1.DeploymentCache
+	secrets            cv1.SecretController
+	secretsCache       cv1.SecretCache
 	secretExports      v1alpha1.SecretExportController
 	secretExportsCache v1alpha1.SecretExportCache
 	recorder           record.EventRecorder
@@ -46,7 +49,9 @@ func Register(
 	ctx context.Context,
 	events typedcorev1.EventInterface,
 	deployments v1.DeploymentController,
-	secretExports v1alpha1.SecretExportController) {
+	secretExports v1alpha1.SecretExportController,
+	secrets cv1.SecretController,
+) {
 
 	controller := &Handler{
 		deployments:        deployments,
@@ -54,11 +59,25 @@ func Register(
 		secretExports:      secretExports,
 		secretExportsCache: secretExports.Cache(),
 		recorder:           buildEventRecorder(events),
+		secrets:            secrets,
 	}
-
 	// Register handlers
 	deployments.OnChange(ctx, "secretExport-handler", controller.OnDeploymentChanged)
 	secretExports.OnChange(ctx, "secretExport-handler", controller.OnSecretExportChanged)
+	secrets.OnChange(ctx, "secret-handler", controller.OnSecretChanged)
+
+}
+
+// OnSecretChanged watches for changes to secrets and queues up the SecretRequest to ensure secrets are up to data
+func (h *Handler) OnSecretChanged(key string, secret *corev1.Secret) (*corev1.Secret, error) {
+	if secret == nil {
+		// It was deleted
+		return nil, nil
+	}
+	logrus.Infof("secret %s changed", key)
+	// If a secret has changed enqueue the matching SecretRequest
+	h.secretExports.Enqueue(secret.GetNamespace(), secret.GetName())
+	return nil, nil
 }
 
 func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder {
@@ -78,6 +97,7 @@ func (h *Handler) OnSecretExportChanged(key string, secretExport *samplev1alpha1
 	if secretExport == nil {
 		return nil, nil
 	}
+	logrus.Infof("secretExport %s changed", key)
 
 	deploymentName := secretExport.Spec.DeploymentName
 	if deploymentName == "" {
@@ -87,6 +107,25 @@ func (h *Handler) OnSecretExportChanged(key string, secretExport *samplev1alpha1
 		utilruntime.HandleError(fmt.Errorf("%s: deployment name must be specified", key))
 		return nil, nil
 	}
+
+	/// mod
+	// Clear out observed resource version
+	secretExport.Status.ObservedSecretResourceVersion = ""
+	secret, err := h.secrets.Get(secretExport.Namespace, secretExport.Name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Do not requeu as there is nothing this controller can do until secret appears
+			return nil, nil
+		}
+		// Requeue to try to fetch exported secret again
+		// TODO: see if this reques it
+		return secretExport, fmt.Errorf("Getting exported secret: %s", err)
+	}
+	// An update to export lets others know to reevaluate export
+	secretExport.Status.ObservedSecretResourceVersion = secret.ResourceVersion
+	// Do not requeue since we found the exported secret
+	return nil, nil
+	/// mod
 
 	// Get the deployment with the name specified in SecretExport.spec
 	deployment, err := h.deploymentsCache.Get(secretExport.Namespace, deploymentName)

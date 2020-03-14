@@ -99,12 +99,12 @@ func (h *Handler) OnSecretExportChanged(key string, secretExport *samplev1alpha1
 	}
 	logrus.Infof("secretExport %s changed", key)
 
-	deploymentName := secretExport.Spec.DeploymentName
-	if deploymentName == "" {
+	toNs := secretExport.Spec.ToNamespaces
+	if len(toNs) == 0 {
 		// We choose to absorb the error here as the worker would requeue the
 		// resource otherwise. Instead, the next time the resource is updated
 		// the resource will be queued again.
-		utilruntime.HandleError(fmt.Errorf("%s: deployment name must be specified", key))
+		utilruntime.HandleError(fmt.Errorf("%s: toNamespaces must be specified", key))
 		return nil, nil
 	}
 
@@ -114,11 +114,11 @@ func (h *Handler) OnSecretExportChanged(key string, secretExport *samplev1alpha1
 	secret, err := h.secrets.Get(secretExport.Namespace, secretExport.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Do not requeu as there is nothing this controller can do until secret appears
+			// Do not requeue as there is nothing this controller can do until secret appears
 			return nil, nil
 		}
 		// Requeue to try to fetch exported secret again
-		// TODO: see if this reques it
+		// TODO: see if this works
 		return secretExport, fmt.Errorf("Getting exported secret: %s", err)
 	}
 	// An update to export lets others know to reevaluate export
